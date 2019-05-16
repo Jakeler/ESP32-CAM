@@ -10,6 +10,8 @@
 #include "soc/rtc_cntl_reg.h"  //disable brownout problems
 #include "dl_lib.h"
 
+#include <Adafruit_NeoPixel.h>
+
 //Replace with your network credentials
 const char* ssid = "TestNetz";
 const char* password = "6vigCGAU";
@@ -20,6 +22,13 @@ const char* password = "6vigCGAU";
 #define CAMERA_MODEL_AI_THINKER
 
 #include "camera_pins.h"
+
+
+#define LED_PIN   2
+#define LED_COUNT 18
+// Declare our NeoPixel strip object:
+Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+uint8_t currentLed = 0;
 
 static const char* _STREAM_CONTENT_TYPE = "multipart/x-mixed-replace;boundary=" PART_BOUNDARY;
 static const char* _STREAM_BOUNDARY = "\r\n--" PART_BOUNDARY "\r\n";
@@ -133,6 +142,12 @@ void setup() {
   config.frame_size = FRAMESIZE_UXGA;
   config.jpeg_quality = 10;
   config.fb_count = 2;
+
+  strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
+  strip.show();            // Turn OFF all pixels ASAP
+  strip.setBrightness(50); // Set BRIGHTNESS to about 1/5 (max = 255)
+  strip.fill(strip.Color(255, 0, 0));
+  strip.show();
   
   // Camera init
   esp_err_t err = esp_camera_init(&config);
@@ -140,6 +155,10 @@ void setup() {
     Serial.printf("Camera init failed with error 0x%x", err);
     return;
   }
+
+  strip.fill(strip.Color(0, 0, 255));
+  strip.show();
+
   // Wi-Fi connection
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
@@ -160,6 +179,11 @@ void setup() {
 }
 
 void loop() {
-  delay(1);
+  delay(100);
+  strip.clear();
+  strip.setPixelColor(currentLed, strip.Color(0, 255, 0));
+  strip.show();
+  currentLed++;
+  currentLed %= LED_COUNT;
 }
 
