@@ -41,7 +41,6 @@ void initCamera() {
     return;
   }
 }
-
 void capture() {
   fb = esp_camera_fb_get();
   if (!fb) {
@@ -64,7 +63,6 @@ void capture() {
     }
   }
 }
-
 void clearFb() {
   if(fb){
     esp_camera_fb_return(fb);
@@ -79,7 +77,75 @@ void clearFb() {
 }
 
 
+void showRing() {
+  startup(3, 200);
+  pauseRing(500);
+  ranking(0.5);
+}
+void showCapture() {
+  pauseRing(300);
+  pulse(0, 0, 0, true);
+  pauseRing(300);
+  ranking(0.5);
+}
+void showWin() {
+  for(float i = 0.1; i<1.0; i+= 0.01) {
+    ranking(i);
+    delay(30);
+  }
+  pulse(65536/3, 255, 3, true);
+  pulse(65536/3, 255, 3, false);
+}
+void pauseRing(int time) {
+  strip.clear();
+  strip.show();
+  delay(time);
+}
+void ranking(float percentage) {
+  uint16_t initHue = 0; // red
+  uint16_t steps = (65536/3)/LED_COUNT; // green
+  uint8_t lit = percentage*LED_COUNT;
+  float remain = percentage*float(LED_COUNT) - lit;
+
+  strip.clear();
+  for(size_t i = 0; i < lit; i++)
+  {
+    strip.setPixelColor(i, strip.ColorHSV(i*steps, 255, 255));
+  }
+  strip.setPixelColor(lit, strip.ColorHSV(lit*steps, 255, remain*255));
+  strip.show();
+}
+void pulse(uint16_t hue, uint8_t sat, uint32_t wait, bool powerdown) {
+  uint8_t passes = powerdown? 2 : 1;
+
+  for(size_t i = 0; i < 256*passes; i++)
+  {
+    //strip.clear();
+    strip.fill(strip.ColorHSV(hue, sat, i <= 255? i : 255 - i));
+    strip.show();
+    //delay(wait);
+  }
+  
+}
+void startup(uint16_t runs, uint32_t wait) {
+  uint32_t color = strip.Color(0, 0, 255);
+
+  for(size_t offset = 0; offset < LED_COUNT*runs; offset++)
+  {
+    strip.clear();
+    for(size_t i = 0; i < LED_COUNT; i+=4)
+    {
+      strip.setPixelColor((i+offset) % LED_COUNT, color);
+      strip.setPixelColor((i+offset+1) % LED_COUNT, color);
+    }
+    strip.show();
+    delay(wait);
+  }  
+}
+
+
 void serveImage() {
+  showCapture();
   capture();
   server.send_P(200, "image/jpeg", (char*)_jpg_buf, _jpg_buf_len);
   clearFb();
@@ -113,7 +179,7 @@ void setup() {
   // Camera init
   initCamera();
 
-  strip.fill(strip.Color(0, 0, 255));
+  strip.clear();
   strip.show();
 
   // Wi-Fi connection
@@ -131,6 +197,9 @@ void setup() {
   server.on("/", serveWelcome);
   server.on("/flash/on", serveFlashOn);
   server.on("/flash/off", serveFlashOff);
+  server.on("/led/start", showRing);
+  server.on("/led/capture", showCapture);
+  server.on("/led/win", showWin);
   server.begin();
   Serial.print("Server Ready! Go to: http://");
   Serial.print(WiFi.localIP());
@@ -141,12 +210,6 @@ void setup() {
 
 void loop() {
   server.handleClient();
-
-  delay(100);
-  strip.clear();
-  strip.setPixelColor(currentLed, strip.Color(0, 255, 0));
-  strip.show();
-  currentLed++;
-  currentLed %= LED_COUNT;
+  delay(1);
 }
 
