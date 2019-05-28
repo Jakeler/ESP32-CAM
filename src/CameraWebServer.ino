@@ -10,8 +10,8 @@
 #include "camera_pins.h"
 #include "camera_config.h"
 
+#include <FastLED.h>
 
-#include <Adafruit_NeoPixel.h>
 
 #include "WebServer.h"
 WebServer server(80);
@@ -25,8 +25,7 @@ const char* password = "6vigCGAU";
 #define LED_PIN   2
 #define LED_COUNT 18
 // Declare our NeoPixel strip object:
-Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
-uint8_t currentLed = 0;
+CRGB leds[LED_COUNT];
 
 camera_fb_t * fb = NULL;
 uint8_t * _jpg_buf = NULL;
@@ -93,52 +92,47 @@ void showWin() {
     ranking(i);
     delay(30);
   }
-  pulse(65536/3, 255, 3, true);
-  pulse(65536/3, 255, 3, false);
+  pulse(255/3, 255, 3, true);
+  pulse(255/3, 255, 3, false);
 }
 void pauseRing(int time) {
-  strip.clear();
-  strip.show();
+  FastLED.clear(true);
   delay(time);
 }
 void ranking(float percentage) {
-  uint16_t initHue = 0; // red
-  uint16_t steps = (65536/3)/LED_COUNT; // green
   uint8_t lit = percentage*LED_COUNT;
   float remain = percentage*float(LED_COUNT) - lit;
+  uint8_t steps = 5;
 
-  strip.clear();
-  for(size_t i = 0; i < lit; i++)
-  {
-    strip.setPixelColor(i, strip.ColorHSV(i*steps, 255, 255));
-  }
-  strip.setPixelColor(lit, strip.ColorHSV(lit*steps, 255, remain*255));
-  strip.show();
+  FastLED.clear();
+  // Red to Green (hue = 85)
+  fill_rainbow(leds, lit, 0, steps);
+  leds[lit] = CHSV(lit*steps, 255, remain*255);
+  FastLED.show();
 }
-void pulse(uint16_t hue, uint8_t sat, uint32_t wait, bool powerdown) {
+void pulse(uint8_t hue, uint8_t sat, uint32_t wait, bool powerdown) {
   uint8_t passes = powerdown? 2 : 1;
 
   for(size_t i = 0; i < 256*passes; i++)
   {
-    //strip.clear();
-    strip.fill(strip.ColorHSV(hue, sat, i <= 255? i : 255 - i));
-    strip.show();
+    FastLED.showColor(CHSV(hue, sat, i <= 255? i : 255 - i));
     //delay(wait);
   }
   
 }
 void startup(uint16_t runs, uint32_t wait) {
-  uint32_t color = strip.Color(0, 0, 255);
+  CRGB color = CRGB::Blue;
 
   for(size_t offset = 0; offset < LED_COUNT*runs; offset++)
   {
-    strip.clear();
+    FastLED.clear();
     for(size_t i = 0; i < LED_COUNT; i+=4)
     {
-      strip.setPixelColor((i+offset) % LED_COUNT, color);
-      strip.setPixelColor((i+offset+1) % LED_COUNT, color);
+      leds[(i+offset) % LED_COUNT] = color;
+      leds[(i+offset+1) % LED_COUNT] = color;
+
     }
-    strip.show();
+    FastLED.show();
     delay(wait);
   }  
 }
@@ -170,17 +164,13 @@ void setup() {
   Serial.begin(115200);
   Serial.setDebugOutput(false);
 
-  strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
-  strip.show();            // Turn OFF all pixels ASAP
-  strip.setBrightness(50); // Set BRIGHTNESS to about 1/5 (max = 255)
-  strip.fill(strip.Color(255, 0, 0));
-  strip.show();
+  FastLED.addLeds<NEOPIXEL, LED_PIN>(leds, LED_COUNT);
+  FastLED.showColor(CRGB::Red);
   
   // Camera init
   initCamera();
 
-  strip.clear();
-  strip.show();
+  FastLED.clear(true);
 
   // Wi-Fi connection
   WiFi.begin(ssid, password);
