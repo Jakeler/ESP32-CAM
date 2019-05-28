@@ -10,6 +10,7 @@
 #include "camera_pins.h"
 #include "camera_config.h"
 
+#define FASTLED_INTERNAL // disable pragma messages
 #include <FastLED.h>
 
 
@@ -75,7 +76,9 @@ void clearFb() {
 
 }
 
-
+void lostConnection(WiFiEvent_t event, WiFiEventInfo_t info) {
+  pulse(0, 255, 3, true);
+}
 void showRing() {
   startup(3, 200);
   pauseRing(500);
@@ -180,6 +183,7 @@ void setup() {
   }
   Serial.println("");
   Serial.println("WiFi connected");
+  WiFi.onEvent(lostConnection, WiFiEvent_t::SYSTEM_EVENT_ETH_DISCONNECTED);
   
   // Start streaming web server
   //startCameraServer();
