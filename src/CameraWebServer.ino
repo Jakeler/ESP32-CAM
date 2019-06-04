@@ -10,6 +10,9 @@
 #include "camera_pins.h"
 #include "camera_config.h"
 
+#include <SPIFFS.h>
+#include <FS.h>
+
 #define FASTLED_INTERNAL // disable pragma messages
 #include <FastLED.h>
 
@@ -28,8 +31,8 @@ const char* password = "6vigCGAU";
 // Declare our NeoPixel strip object:
 CRGB leds[LED_COUNT];
 
-camera_fb_t * fb = NULL;
-uint8_t * _jpg_buf = NULL;
+camera_fb_t *fb = NULL;
+uint8_t *_jpg_buf = NULL;
 size_t _jpg_buf_len = 0;
 esp_err_t res = ESP_OK;
 
@@ -143,9 +146,39 @@ void startup(uint16_t runs, uint32_t wait) {
 
 void serveImage() {
   showCapture();
+  
   capture();
-  server.send_P(200, "image/jpeg", (char*)_jpg_buf, _jpg_buf_len);
+  if(saveCurrentImage()) {
+    server.send_P(200, "image/jpeg", (char*)_jpg_buf, _jpg_buf_len);
+  } else {
+    server.send(418, "tex/plain", "Not enough free flash!");
+  }
+
   clearFb();
+}
+
+bool saveCurrentImage() {
+  if (getFreeFlash() < _jpg_buf_len) {
+    Serial.println(_jpg_buf_len);
+    return false;
+  }
+
+  uint16_t id = 0;
+  String path;
+  do {
+    path = getImgPath(String(id));
+    id++;
+  }  while(SPIFFS.exists(path));
+
+  Serial.println("Writing to " + path);
+  File imageFile = SPIFFS.open(path, FILE_WRITE);
+  while(imageFile.write(_jpg_buf, _jpg_buf_len) == 0) {
+    Serial.print(".");
+    delay(10);
+  }
+  Serial.println("Wrote: "+String(imageFile.size()) + " / " + String(_jpg_buf_len));
+  imageFile.close();
+  return true;
 }
 
 void serveWelcome() {
@@ -160,12 +193,61 @@ void serveFlashOff() {
   digitalWrite(FLASH_PIN, 0);
   server.send(200, "text/plain", "OK");
 }
-  
+
+String getImgPath(String id) {
+  return "/img/" + id + ".jpg";
+}
+
+void serveOldImg() {
+  if(!server.hasArg("id")) {
+    server.send(400, "text/plain", "id parameter missing!");
+    return;
+  }
+  String path = getImgPath(server.arg("id"));
+  if(!SPIFFS.exists(path)) {
+    server.send(404, "text/plain", "File not existing!");
+    return;
+  }
+  File imageFile = SPIFFS.open(path, FILE_READ);
+  // uint32_t buf_len = imageFile.size();
+  // char imageBuffer[buf_len];
+  // imageFile.readBytes(imageBuffer, buf_len);
+  // server.send_P(200, "image/jpeg", imageBuffer, buf_len);
+  server.streamFile(imageFile, "image/jpeg");
+  imageFile.close();
+}
+void serveText() {
+  File imageFile = SPIFFS.open("/test.txt", FILE_READ);
+  server.streamFile(imageFile, "text/plain");
+  imageFile.close();
+}
+void serveSpace() {
+  char json[50];
+  sprintf(json, "{\"total\": %d, \"used\": %d, \"free\": %d}", SPIFFS.totalBytes(), SPIFFS.usedBytes(), getFreeFlash());
+  Serial.println(json);
+  server.send(200, "application/json", json);
+}
+void serveWipe() {
+  String res = SPIFFS.format()? "Wipe successful!" : "Wipe FAILED";
+  server.send(200, "text/plain", res);
+}
+
+size_t getFreeFlash() {
+  return SPIFFS.totalBytes() - SPIFFS.usedBytes() - 1000; 
+}
 
 
 void setup() { 
   Serial.begin(115200);
   Serial.setDebugOutput(false);
+
+  // Spiffs: format on fail = true
+  if(!SPIFFS.begin(true)){
+      Serial.println("An Error has occurred while mounting SPIFFS");
+      return;
+  }
+
+  Serial.println(SPIFFS.exists("/test.txt")? "Test.txt there!" : "No test.txt");
 
   FastLED.addLeds<NEOPIXEL, LED_PIN>(leds, LED_COUNT);
   FastLED.showColor(CRGB::Red);
@@ -184,19 +266,24 @@ void setup() {
   Serial.println("");
   Serial.println("WiFi connected");
   WiFi.onEvent(lostConnection, WiFiEvent_t::SYSTEM_EVENT_ETH_DISCONNECTED);
-  
+
   // Start streaming web server
   //startCameraServer();
-  server.on("/pic.jpg", serveImage);
   server.on("/", serveWelcome);
+  server.on("/pic", serveImage);
+  server.on("/test.txt", serveText);
+  server.on("/storage/img", serveOldImg);
+  server.on("/storage/space", serveSpace);
+  server.on("/storage/wipe", serveWipe);
   server.on("/flash/on", serveFlashOn);
   server.on("/flash/off", serveFlashOff);
   server.on("/led/start", showRing);
   server.on("/led/capture", showCapture);
   server.on("/led/win", showWin);
   server.begin();
+
   Serial.print("Server Ready! Go to: http://");
-  Serial.print(WiFi.localIP());
+  Serial.println(WiFi.localIP());
 
   // Enable Flash
   pinMode(FLASH_PIN, OUTPUT);
