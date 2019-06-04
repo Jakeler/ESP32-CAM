@@ -1,3 +1,7 @@
+// PIN def: https://github.com/SeeedDocument/Outsourcing/tree/master/113990580%20ESP32-CAM
+#define FLASH_PIN 4 // Conflicts SD DATA1!
+
+#define LED_PIN   2
 
 #if defined(CAMERA_MODEL_WROVER_KIT)
 #define PWDN_GPIO_NUM    -1
@@ -97,6 +101,3 @@
 #else
 #error "Camera model not selected"
 #endif
-
-// PIN def: https://github.com/SeeedDocument/Outsourcing/tree/master/113990580%20ESP32-CAM
-#define FLASH_PIN 4 // Conflicts SD DATA1!

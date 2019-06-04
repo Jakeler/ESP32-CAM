@@ -1,6 +1,6 @@
 #define CAMERA_MODEL_AI_THINKER
-#include "camera_pins.h"
 #include "esp_camera.h"
+#include "pins.h"
 
 camera_config_t config = {
 .pin_pwdn = PWDN_GPIO_NUM,
@@ -31,5 +31,5 @@ camera_config_t config = {
 .frame_size = FRAMESIZE_UXGA,
 
 .jpeg_quality = 10,
-.fb_count = 2,
+.fb_count = 1,
 };

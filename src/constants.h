@@ -1,3 +1,5 @@
+#define LED_COUNT 18
+
 const char* ssid = "TestNetz";
 const char* password = "6vigCGAU";
 

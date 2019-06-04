@@ -6,8 +6,6 @@
 #include "img_converters.h"
 #include "fb_gfx.h"
 
-#define CAMERA_MODEL_AI_THINKER
-#include "camera_pins.h"
 #include "camera_config.h"
 
 #include <SPIFFS.h>
@@ -23,13 +21,9 @@ WebServer server(80);
 
 #include "constants.h"
 
-
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
-#define LED_PIN   2
-#define LED_COUNT 18
-// Declare our NeoPixel strip object:
 CRGB leds[LED_COUNT];
 
 camera_fb_t *fb = NULL;
@@ -278,7 +272,7 @@ void setup() {
     Serial.print(".");
     delay(500);
   }
-  Serial.println("MQTT connected");  
+  Serial.println("MQTT connected"); 
 
   // REST API Server
   server.on("/", serveWelcome);
