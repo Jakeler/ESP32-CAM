@@ -21,13 +21,8 @@
 #include "WebServer.h"
 WebServer server(80);
 
+#include "constants.h"
 
-//Replace with your network credentials
-const char* ssid = "TestNetz";
-const char* password = "6vigCGAU";
-
-const char* mqttServer = "t440s-arch";
-const int mqttPort = 2222;
 
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
@@ -279,8 +274,9 @@ void setup() {
   // MQTT connection
   mqttClient.setServer(mqttServer, mqttPort);
   while (!mqttClient.connected()) {
-    delay(500);
+    mqttClient.connect(CUP_ID);
     Serial.print(".");
+    delay(500);
   }
   Serial.println("MQTT connected");  
 
