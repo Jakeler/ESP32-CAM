@@ -16,7 +16,8 @@
 #define FASTLED_INTERNAL // disable pragma messages
 #include <FastLED.h>
 
-
+#include <WiFi.h>
+#include <PubSubClient.h>
 #include "WebServer.h"
 WebServer server(80);
 
@@ -25,6 +26,11 @@ WebServer server(80);
 const char* ssid = "TestNetz";
 const char* password = "6vigCGAU";
 
+const char* mqttServer = "t440s-arch";
+const int mqttPort = 2222;
+
+WiFiClient wifiClient;
+PubSubClient mqttClient(wifiClient);
 
 #define LED_PIN   2
 #define LED_COUNT 18
@@ -233,7 +239,9 @@ void serveWipe() {
 }
 
 size_t getFreeFlash() {
-  return SPIFFS.totalBytes() - SPIFFS.usedBytes() - 1000; 
+  Serial.println(SPIFFS.totalBytes());
+  Serial.println(SPIFFS.usedBytes());
+  return SPIFFS.totalBytes() - SPIFFS.usedBytes() - 1000;
 }
 
 
@@ -266,6 +274,15 @@ void setup() {
   Serial.println("");
   Serial.println("WiFi connected");
   WiFi.onEvent(lostConnection, WiFiEvent_t::SYSTEM_EVENT_ETH_DISCONNECTED);
+
+  // MQTT connection
+  mqttClient.setServer(mqttServer, mqttPort);
+  while (!mqttClient.connected()) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("MQTT connected");
+  
 
   // Start streaming web server
   //startCameraServer();
