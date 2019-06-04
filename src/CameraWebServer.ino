@@ -44,11 +44,12 @@ esp_err_t res = ESP_OK;
 
 
 void initCamera() {
-  esp_err_t err = esp_camera_init(&config);
-  if (err != ESP_OK) {
-    Serial.printf("Camera init failed with error 0x%x", err);
-    return;
+  Serial.println("Starting camera");
+  while (esp_camera_init(&config) != ESP_OK) {
+    Serial.print(".");
+    delay(200);
   }
+  Serial.println("Camera initialized");
 }
 void capture() {
   fb = esp_camera_fb_get();
@@ -281,11 +282,9 @@ void setup() {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("MQTT connected");
-  
+  Serial.println("MQTT connected");  
 
-  // Start streaming web server
-  //startCameraServer();
+  // REST API Server
   server.on("/", serveWelcome);
   server.on("/pic", serveImage);
   server.on("/test.txt", serveText);
@@ -302,7 +301,7 @@ void setup() {
   Serial.print("Server Ready! Go to: http://");
   Serial.println(WiFi.localIP());
 
-  // Enable Flash
+  // Setup Flash
   pinMode(FLASH_PIN, OUTPUT);
 }
 
