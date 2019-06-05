@@ -31,6 +31,9 @@ uint8_t *_jpg_buf = NULL;
 size_t _jpg_buf_len = 0;
 esp_err_t res = ESP_OK;
 
+uint16_t currentScore = 0;
+uint16_t maxScore = 0;
+
 
 void initCamera() {
   Serial.println("Starting camera");
@@ -155,9 +158,16 @@ void serveImage() {
 }
 
 void publishScore() {
+  currentScore++;
+  // Reduce unnecessary traffic
+  if(currentScore < maxScore) return;
+
   char topic[32];
   sprintf(topic, "cup/%s/imageCount", CUP_ID);
-  mqttClient.publish(topic, "6");
+  char value[7];
+  sprintf(value, "%d", currentScore);
+
+  mqttClient.publish(topic, value);
 }
 
 bool saveCurrentImage() {
@@ -239,7 +249,14 @@ size_t getFreeFlash() {
 }
 
 void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
-  Serial.println("Received: " + String(topic));
+  Serial.println("Received on: " + String(topic));
+  uint16_t incoming = atoi((char*)payload);
+  // Atoi returns 0 on error, so no problem
+  if (incoming > maxScore) {
+    maxScore = incoming;
+    Serial.printf("Increased max to %d\n", incoming);
+  }
+  
 }
 
 void setup() { 
