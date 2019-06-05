@@ -149,8 +149,15 @@ void serveImage() {
   } else {
     server.send(418, "tex/plain", "Not enough free flash!");
   }
-
   clearFb();
+
+  publishScore();
+}
+
+void publishScore() {
+  char topic[32];
+  sprintf(topic, "cup/%s/imageCount", CUP_ID);
+  mqttClient.publish(topic, "6");
 }
 
 bool saveCurrentImage() {
@@ -217,11 +224,8 @@ void serveText() {
   server.streamFile(imageFile, "text/plain");
   imageFile.close();
 }
-void serveSpace() {
-  char json[50];
-  sprintf(json, "{\"total\": %d, \"used\": %d, \"free\": %d}", SPIFFS.totalBytes(), SPIFFS.usedBytes(), getFreeFlash());
-  Serial.println(json);
-  server.send(200, "application/json", json);
+void serveSpace() {;
+  server.send(200, "text/plain", String(getFreeFlash()));
 }
 void serveWipe() {
   String res = SPIFFS.format()? "Wipe successful!" : "Wipe FAILED";
@@ -234,6 +238,9 @@ size_t getFreeFlash() {
   return SPIFFS.totalBytes() - SPIFFS.usedBytes() - 1000;
 }
 
+void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
+  Serial.println("Received: " + String(topic));
+}
 
 void setup() { 
   Serial.begin(115200);
@@ -273,6 +280,8 @@ void setup() {
     delay(500);
   }
   Serial.println("MQTT connected"); 
+  mqttClient.setCallback(mqttCallback);
+  mqttClient.subscribe("cup/+/imageCount");
 
   // REST API Server
   server.on("/", serveWelcome);
@@ -297,6 +306,7 @@ void setup() {
 
 void loop() {
   server.handleClient();
+  mqttClient.loop();
   delay(1);
 }
 
