@@ -259,6 +259,18 @@ void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
   
 }
 
+void connectMQTT() {
+  mqttClient.setServer(mqttServer, mqttPort);
+  while (!mqttClient.connected()) {
+    mqttClient.connect(CUP_ID);
+    Serial.print(".");
+    delay(500);
+  }
+  Serial.println("MQTT connected"); 
+  mqttClient.setCallback(mqttCallback);
+  mqttClient.subscribe("cup/+/imageCount");
+}
+
 void setup() { 
   Serial.begin(115200);
   Serial.setDebugOutput(false);
@@ -290,15 +302,7 @@ void setup() {
   WiFi.onEvent(lostConnection, WiFiEvent_t::SYSTEM_EVENT_ETH_DISCONNECTED);
 
   // MQTT connection
-  mqttClient.setServer(mqttServer, mqttPort);
-  while (!mqttClient.connected()) {
-    mqttClient.connect(CUP_ID);
-    Serial.print(".");
-    delay(500);
-  }
-  Serial.println("MQTT connected"); 
-  mqttClient.setCallback(mqttCallback);
-  mqttClient.subscribe("cup/+/imageCount");
+  connectMQTT();
 
   // REST API Server
   server.on("/", serveWelcome);
@@ -323,7 +327,13 @@ void setup() {
 
 void loop() {
   server.handleClient();
+  
   mqttClient.loop();
+  if (!mqttClient.connected()) {
+    Serial.println("Lost MQTT connection... trying reconnect");
+    connectMQTT();
+  }
+  
   delay(1);
 }
 
