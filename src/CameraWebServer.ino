@@ -229,11 +229,6 @@ void serveOldImg() {
   server.streamFile(imageFile, "image/jpeg");
   imageFile.close();
 }
-void serveText() {
-  File imageFile = SPIFFS.open("/test.txt", FILE_READ);
-  server.streamFile(imageFile, "text/plain");
-  imageFile.close();
-}
 void serveSpace() {;
   server.send(200, "text/plain", String(getFreeFlash()));
 }
@@ -281,8 +276,6 @@ void setup() {
       return;
   }
 
-  Serial.println(SPIFFS.exists("/test.txt")? "Test.txt there!" : "No test.txt");
-
   FastLED.addLeds<NEOPIXEL, LED_PIN>(leds, LED_COUNT);
   FastLED.showColor(CRGB::Red);
   
@@ -307,7 +300,6 @@ void setup() {
   // REST API Server
   server.on("/", serveWelcome);
   server.on("/pic", serveImage);
-  server.on("/test.txt", serveText);
   server.on("/storage/img", serveOldImg);
   server.on("/storage/space", serveSpace);
   server.on("/storage/wipe", serveWipe);
@@ -327,7 +319,7 @@ void setup() {
 
 void loop() {
   server.handleClient();
-  
+
   mqttClient.loop();
   if (!mqttClient.connected()) {
     Serial.println("Lost MQTT connection... trying reconnect");
