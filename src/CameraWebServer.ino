@@ -315,6 +315,10 @@ void setup() {
 
   // Setup Flash
   pinMode(FLASH_PIN, OUTPUT);
+
+  // Setup Button
+  pinMode(BTN_PIN, INPUT_PULLUP);
+  // attachInterrupt(digitalPinToInterrupt(BTN_PIN), showCapture, FALLING);
 }
 
 void loop() {
@@ -324,6 +328,14 @@ void loop() {
   if (!mqttClient.connected()) {
     Serial.println("Lost MQTT connection... trying reconnect");
     connectMQTT();
+  }
+
+  if (digitalRead(BTN_PIN) == LOW) {
+    showCapture();
+    capture();
+    saveCurrentImage();
+    clearFb();
+    publishScore();
   }
   
   delay(1);
