@@ -32,7 +32,7 @@ size_t _jpg_buf_len = 0;
 esp_err_t res = ESP_OK;
 
 uint16_t currentScore = 0;
-uint16_t maxScore = 0;
+uint16_t maxScore = 1;
 
 
 void initCamera() {
@@ -84,19 +84,13 @@ void lostConnection(WiFiEvent_t event, WiFiEventInfo_t info) {
 void showRing() {
   startup(3, 200);
   pauseRing(500);
-  ranking(0.5);
 }
 void showCapture() {
   pauseRing(300);
   pulse(0, 0, 0, true);
   pauseRing(300);
-  ranking(0.5);
 }
 void showWin() {
-  for(float i = 0.1; i<1.0; i+= 0.01) {
-    ranking(i);
-    delay(30);
-  }
   pulse(255/3, 255, 3, true);
   pulse(255/3, 255, 3, false);
 }
@@ -104,7 +98,9 @@ void pauseRing(int time) {
   FastLED.clear(true);
   delay(time);
 }
-void ranking(float percentage) {
+void ranking() {
+  float percentage = (float)currentScore/(float)maxScore;
+
   uint8_t lit = percentage*LED_COUNT;
   float remain = percentage*float(LED_COUNT) - lit;
   uint8_t steps = 5;
@@ -139,7 +135,7 @@ void startup(uint16_t runs, uint32_t wait) {
     }
     FastLED.show();
     delay(wait);
-  }  
+  }
 }
 
 
@@ -161,6 +157,8 @@ void publishScore() {
   currentScore++;
   // Reduce unnecessary traffic
   if(currentScore < maxScore) return;
+
+  showWin();
 
   char topic[32];
   sprintf(topic, "cup/%s/imageCount", CUP_ID);
@@ -305,9 +303,6 @@ void setup() {
   server.on("/storage/wipe", serveWipe);
   server.on("/flash/on", serveFlashOn);
   server.on("/flash/off", serveFlashOff);
-  server.on("/led/start", showRing);
-  server.on("/led/capture", showCapture);
-  server.on("/led/win", showWin);
   server.begin();
 
   Serial.print("Server Ready! Go to: http://");
@@ -319,6 +314,10 @@ void setup() {
   // Setup Button
   pinMode(BTN_PIN, INPUT_PULLUP);
   // attachInterrupt(digitalPinToInterrupt(BTN_PIN), showCapture, FALLING);
+
+  EVERY_N_MILLISECONDS(100) {
+    Serial.println("ALIVE");
+  }
 }
 
 void loop() {
@@ -338,6 +337,7 @@ void loop() {
     publishScore();
   }
   
-  delay(1);
+  ranking();
+  delay(10);
 }
 
