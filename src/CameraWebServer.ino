@@ -313,11 +313,6 @@ void setup() {
 
   // Setup Button
   pinMode(BTN_PIN, INPUT_PULLUP);
-  // attachInterrupt(digitalPinToInterrupt(BTN_PIN), showCapture, FALLING);
-
-  EVERY_N_MILLISECONDS(100) {
-    Serial.println("ALIVE");
-  }
 }
 
 void loop() {
