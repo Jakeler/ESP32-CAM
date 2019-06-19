@@ -168,18 +168,24 @@ void publishScore() {
   mqttClient.publish(topic, value);
 }
 
-bool saveCurrentImage() {
-  if (getFreeFlash() < _jpg_buf_len) {
-    Serial.println(_jpg_buf_len);
-    return false;
-  }
-
+uint16_t getNextImgId() {
   uint16_t id = 0;
   String path;
   do {
     path = getImgPath(String(id));
     id++;
   }  while(SPIFFS.exists(path));
+
+  return id-1;
+}
+
+bool saveCurrentImage() {
+  if (getFreeFlash() < _jpg_buf_len) {
+    Serial.println(_jpg_buf_len);
+    return false;
+  }
+
+  String path = getImgPath(String(getNextImgId()));
 
   Serial.println("Writing to " + path);
   File imageFile = SPIFFS.open(path, FILE_WRITE);
@@ -235,6 +241,11 @@ void serveWipe() {
   server.send(200, "text/plain", res);
 }
 
+void serveImgCount() {
+  uint16_t count = getNextImgId();
+  server.send(200, "text/plain", String(count));
+}
+
 size_t getFreeFlash() {
   Serial.println(SPIFFS.totalBytes());
   Serial.println(SPIFFS.usedBytes());
@@ -273,7 +284,7 @@ void setup() {
       Serial.println("An Error has occurred while mounting SPIFFS");
       return;
   }
-
+  
   FastLED.addLeds<NEOPIXEL, LED_PIN>(leds, LED_COUNT);
   FastLED.showColor(CRGB::Red);
   
@@ -300,6 +311,7 @@ void setup() {
   server.on("/pic", serveImage);
   server.on("/storage/img", serveOldImg);
   server.on("/storage/space", serveSpace);
+  server.on("/storage/img_count", serveImgCount);
   server.on("/storage/wipe", serveWipe);
   server.on("/flash/on", serveFlashOn);
   server.on("/flash/off", serveFlashOff);
