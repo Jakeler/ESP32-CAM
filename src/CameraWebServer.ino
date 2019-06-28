@@ -45,6 +45,7 @@ void initCamera() {
 }
 void capture() {
   fb = esp_camera_fb_get();
+
   if (!fb) {
     Serial.println("Camera capture failed");
     res = ESP_FAIL;
@@ -240,6 +241,18 @@ void serveWipe() {
   String res = SPIFFS.format()? "Wipe successful!" : "Wipe FAILED";
   server.send(200, "text/plain", res);
 }
+void serveDelete() {
+  if(!server.hasArg("id")) {
+    server.send(400, "text/plain", "id parameter missing!");
+    return;
+  }
+  String path = getImgPath(server.arg("id"));
+  if(SPIFFS.remove(path)) {
+    server.send(200, "text/plain", "OK");
+  } else {
+    server.send(404, "text/plain", "File not existing!");
+  }
+}
 
 void serveImgCount() {
   uint16_t count = getNextImgId();
@@ -313,6 +326,7 @@ void setup() {
   server.on("/storage/space", serveSpace);
   server.on("/storage/img_count", serveImgCount);
   server.on("/storage/wipe", serveWipe);
+  server.on("/storage/delete", serveDelete);
   server.on("/flash/on", serveFlashOn);
   server.on("/flash/off", serveFlashOff);
   server.begin();
@@ -337,14 +351,17 @@ void loop() {
   }
 
   if (digitalRead(BTN_PIN) == LOW) {
+    // digitalWrite(FLASH_PIN, 1);
+    publishScore();
     showCapture();
     capture();
+    // digitalWrite(FLASH_PIN, 0);
+
     saveCurrentImage();
     clearFb();
-    publishScore();
   }
   
   ranking();
-  delay(10);
+  delay(1000);
 }
 
