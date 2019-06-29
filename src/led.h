@@ -1,7 +1,6 @@
 #define LED_COUNT 18
 
 class LED {
-    private:
     public:
         void init();
         void startup(uint16_t runs, uint32_t wait);
@@ -11,4 +10,7 @@ class LED {
         void ranking();
         void showCapture();
         void showWin();
+    private:
 };
+
+enum class LED_Event {startup, capture, ranking, win, error};

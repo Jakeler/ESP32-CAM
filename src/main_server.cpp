@@ -16,12 +16,18 @@ MQTT mqtt;
 
 #include "main_server.h"
 
+QueueHandle_t ledEventQueue;
+
 void setup() { 
   Serial.begin(115200);
   Serial.setDebugOutput(false);
 
   led.init();
-  led.startup(2, 100);
+
+  ledEventQueue = xQueueCreate(8, sizeof(int));
+  sendEvent(LED_Event::error);
+  sendEvent(LED_Event::startup);
+  xTaskCreatePinnedToCore(ledTask, "LED Task", 16000, NULL, 17, NULL, 1);
 
   cam.initFS(); 
   cam.init();
@@ -45,19 +51,51 @@ void loop() {
   if (digitalRead(BTN_PIN) == LOW) {
     // digitalWrite(FLASH_PIN, 1);
     mqtt.publishScore();
-    led.showCapture();
+    sendEvent(LED_Event::capture);
     cam.capture();
     // digitalWrite(FLASH_PIN, 0);
 
     cam.saveCurrentImage();
     cam.clearFb();
   }
-  
-  led.ranking();
+
   delay(1000);
 }
 
+void sendEvent(LED_Event evt) {
+  xQueueSend(ledEventQueue, &evt, 0);
+}
 
+void ledTask(void *params) {
+  LED_Event event;
+  while(1) {
+    // Serial.printf("Running LEDs on core %d\n", xPortGetCoreID());
+    if(xQueueReceive(ledEventQueue, &event, 0) != pdPASS) {
+      led.ranking();
+      delay(1000);
+      continue; // Skip loop iteration is no new event
+    }
+
+    switch (event) {
+      case LED_Event::startup:
+        led.startup(1, 100);
+        break;
+      case LED_Event::error:
+        led.pulse(0, 255, 3, true);
+        break;
+      case LED_Event::capture:
+        led.showCapture();
+        break;
+      case LED_Event::ranking:
+        led.ranking();
+        break;
+      
+      default:
+        delay(1000);
+        break;
+    }    
+  }
+}
 
 void serveWelcome() {
   server.send(200, "text/plain", "ESP-CAM running, please use an endpoint in /storage or /flash");
