@@ -1,14 +1,5 @@
 #include <Arduino.h>
 
-#include "esp_camera.h"
-#include "esp_timer.h"
-#include "img_converters.h"
-#include "fb_gfx.h"
-
-#include "camera_config.h"
-
-#include <SPIFFS.h>
-#include <FS.h>
 
 #include <WiFi.h>
 #include <PubSubClient.h>
@@ -24,87 +15,25 @@ WebServer server(80);
 #include "led.h"
 LED led;
 
-
-
-camera_fb_t *fb = NULL;
-uint8_t *_jpg_buf = NULL;
-size_t _jpg_buf_len = 0;
-esp_err_t res = ESP_OK;
+#include "camera.h"
+CAM cam;
 
 uint16_t currentScore = 0;
 uint16_t maxScore = 1;
 
 
-void initCamera() {
-  Serial.println("Starting camera");
-  while (esp_camera_init(&config) != ESP_OK) {
-    Serial.print(".");
-    delay(200);
-  }
-  Serial.println("Camera initialized");
-}
-void capture() {
-  fb = esp_camera_fb_get();
-
-  if (!fb) {
-    Serial.println("Camera capture failed");
-    res = ESP_FAIL;
-  } else {
-    if(fb->width > 400){
-      if(fb->format != PIXFORMAT_JPEG){
-        bool jpeg_converted = frame2jpg(fb, 80, &_jpg_buf, &_jpg_buf_len);
-        esp_camera_fb_return(fb);
-        fb = NULL;
-        if(!jpeg_converted){
-          Serial.println("JPEG compression failed");
-          res = ESP_FAIL;
-        }
-      } else {
-        _jpg_buf_len = fb->len;
-        _jpg_buf = fb->buf;
-      }
-    }
-  }
-}
-void clearFb() {
-  if(fb){
-    esp_camera_fb_return(fb);
-    fb = NULL;
-    _jpg_buf = NULL;
-  } else if(_jpg_buf){
-    free(_jpg_buf);
-    _jpg_buf = NULL;
-  }
-  //Serial.printf("MJPG: %uB\n",(uint32_t)(_jpg_buf_len));
-
-}
-
 void lostConnection(WiFiEvent_t event, WiFiEventInfo_t info) {
+  Serial.println("WIFI disconnected!");
   led.pulse(0, 255, 3, true);
 }
 
-
-
-void serveImage() {
-  led.showCapture();
-  
-  capture();
-  if(saveCurrentImage()) {
-    server.send_P(200, "image/jpeg", (char*)_jpg_buf, _jpg_buf_len);
-  } else {
-    server.send(418, "tex/plain", "Not enough free flash!");
-  }
-  clearFb();
-
-  publishScore();
-}
 
 void publishScore() {
   currentScore++;
   // Reduce unnecessary traffic
   if(currentScore < maxScore) return;
 
-  led.showWin();
+  // led.showWin();
 
   char topic[32];
   sprintf(topic, "cup/%s/imageCount", CUP_ID);
@@ -114,38 +43,8 @@ void publishScore() {
   mqttClient.publish(topic, value);
 }
 
-uint16_t getNextImgId() {
-  uint16_t id = 0;
-  String path;
-  do {
-    path = getImgPath(String(id));
-    id++;
-  }  while(SPIFFS.exists(path));
-
-  return id-1;
-}
-
-bool saveCurrentImage() {
-  if (getFreeFlash() < _jpg_buf_len) {
-    Serial.println(_jpg_buf_len);
-    return false;
-  }
-
-  String path = getImgPath(String(getNextImgId()));
-
-  Serial.println("Writing to " + path);
-  File imageFile = SPIFFS.open(path, FILE_WRITE);
-  while(imageFile.write(_jpg_buf, _jpg_buf_len) == 0) {
-    Serial.print(".");
-    delay(10);
-  }
-  Serial.println("Wrote: "+String(imageFile.size()) + " / " + String(_jpg_buf_len));
-  imageFile.close();
-  return true;
-}
-
 void serveWelcome() {
-  server.send(200, "text/plain", "Go to /pic.jpg to get an image!");
+  server.send(200, "text/plain", "ESP-CAM running, please use an endpoint in /storage or /flash");
 }
 
 void serveFlashOn() {
@@ -157,33 +56,26 @@ void serveFlashOff() {
   server.send(200, "text/plain", "OK");
 }
 
-String getImgPath(String id) {
-  return "/img/" + id + ".jpg";
-}
-
-void serveOldImg() {
+void serveImg() {
   if(!server.hasArg("id")) {
     server.send(400, "text/plain", "id parameter missing!");
     return;
   }
-  String path = getImgPath(server.arg("id"));
-  if(!SPIFFS.exists(path)) {
+
+  String id = server.arg("id");
+  if(!cam.checkImgExists(id)) {
     server.send(404, "text/plain", "File not existing!");
     return;
   }
-  File imageFile = SPIFFS.open(path, FILE_READ);
-  // uint32_t buf_len = imageFile.size();
-  // char imageBuffer[buf_len];
-  // imageFile.readBytes(imageBuffer, buf_len);
-  // server.send_P(200, "image/jpeg", imageBuffer, buf_len);
+  File imageFile = cam.getImgFile(id);
   server.streamFile(imageFile, "image/jpeg");
   imageFile.close();
 }
 void serveSpace() {;
-  server.send(200, "text/plain", String(getFreeFlash()));
+  server.send(200, "text/plain", String(cam.getFreeFlash()));
 }
 void serveWipe() {
-  String res = SPIFFS.format()? "Wipe successful!" : "Wipe FAILED";
+  String res = cam.wipeFS()? "Wipe successful!" : "Wipe FAILED";
   server.send(200, "text/plain", res);
 }
 void serveDelete() {
@@ -191,24 +83,19 @@ void serveDelete() {
     server.send(400, "text/plain", "id parameter missing!");
     return;
   }
-  String path = getImgPath(server.arg("id"));
-  if(SPIFFS.remove(path)) {
+  
+  if(!cam.deleteImg(server.arg("id"))) {
     server.send(200, "text/plain", "OK");
   } else {
-    server.send(404, "text/plain", "File not existing!");
+    server.send(404, "text/plain", "Could not delete file");
   }
 }
 
 void serveImgCount() {
-  uint16_t count = getNextImgId();
+  uint16_t count = cam.getNextImgId();
   server.send(200, "text/plain", String(count));
 }
 
-size_t getFreeFlash() {
-  Serial.println(SPIFFS.totalBytes());
-  Serial.println(SPIFFS.usedBytes());
-  return SPIFFS.totalBytes() - SPIFFS.usedBytes() - 1000;
-}
 
 void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
   Serial.println("Received on: " + String(topic));
@@ -240,14 +127,9 @@ void setup() {
   led.init();
   led.startup(2, 100);
 
-  // Spiffs: format on fail = true
-  if(!SPIFFS.begin(true)){
-      Serial.println("An Error has occurred while mounting SPIFFS");
-      return;
-  }  
+  cam.initFS();
  
-  // Camera init
-  initCamera();
+  cam.init();
 
   // Wi-Fi connection
   WiFi.begin(ssid, password);
@@ -257,15 +139,14 @@ void setup() {
   }
   Serial.println("");
   Serial.println("WiFi connected");
-  WiFi.onEvent(lostConnection, WiFiEvent_t::SYSTEM_EVENT_ETH_DISCONNECTED);
+  WiFi.onEvent(lostConnection, WiFiEvent_t::SYSTEM_EVENT_AP_STADISCONNECTED);
 
   // MQTT connection
   connectMQTT();
 
   // REST API Server
   server.on("/", serveWelcome);
-  server.on("/pic", serveImage);
-  server.on("/storage/img", serveOldImg);
+  server.on("/storage/img", serveImg);
   server.on("/storage/space", serveSpace);
   server.on("/storage/img_count", serveImgCount);
   server.on("/storage/wipe", serveWipe);
@@ -297,11 +178,11 @@ void loop() {
     // digitalWrite(FLASH_PIN, 1);
     publishScore();
     led.showCapture();
-    capture();
+    cam.capture();
     // digitalWrite(FLASH_PIN, 0);
 
-    saveCurrentImage();
-    clearFb();
+    cam.saveCurrentImage();
+    cam.clearFb();
   }
   
   led.ranking();
