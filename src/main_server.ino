@@ -75,19 +75,11 @@ void serveImgCount() {
   server.send(200, "text/plain", String(count));
 }
 
-
-void setup() { 
-  Serial.begin(115200);
-  Serial.setDebugOutput(false);
-
-  led.init();
-  led.startup(2, 100);
-
-  cam.initFS();
- 
-  cam.init();
-
-  // Wi-Fi connection
+/**
+ * Connect to specified AP
+ */
+void initWifi() {
+  Serial.println("Starting WiFi");
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -95,12 +87,12 @@ void setup() {
   }
   Serial.println("");
   Serial.println("WiFi connected");
-  WiFi.onEvent(lostConnection, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
+}
 
-  // MQTT connection
-  mqtt.connect();
-
-  // REST API Server
+/**
+ * REST API Server
+ */
+void initServer() {
   server.on("/", serveWelcome);
   server.on("/storage/img", serveImg);
   server.on("/storage/space", serveSpace);
@@ -113,10 +105,25 @@ void setup() {
 
   Serial.print("Server Ready! Go to: http://");
   Serial.println(WiFi.localIP());
+}
+
+
+void setup() { 
+  Serial.begin(115200);
+  Serial.setDebugOutput(false);
+
+  led.init();
+  led.startup(2, 100);
+
+  cam.initFS(); 
+  cam.init();
+
+  initWifi();
+  mqtt.connect();
+  initServer();
 
   // Setup Flash
   pinMode(FLASH_PIN, OUTPUT);
-
   // Setup Button
   pinMode(BTN_PIN, INPUT_PULLUP);
 }
