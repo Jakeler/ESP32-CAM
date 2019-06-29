@@ -1,5 +1,4 @@
-#include "Arduino.h"
-#include <WiFi.h>
+#include <Arduino.h>
 
 #include "esp_camera.h"
 #include "esp_timer.h"
@@ -11,20 +10,21 @@
 #include <SPIFFS.h>
 #include <FS.h>
 
-#define FASTLED_INTERNAL // disable pragma messages
-#include <FastLED.h>
-
 #include <WiFi.h>
 #include <PubSubClient.h>
+WiFiClient wifiClient;
+PubSubClient mqttClient(wifiClient);
+
 #include "WebServer.h"
 WebServer server(80);
 
 #include "constants.h"
+#include "pins.h"
 
-WiFiClient wifiClient;
-PubSubClient mqttClient(wifiClient);
+#include "led.h"
+LED led;
 
-CRGB leds[LED_COUNT];
+
 
 camera_fb_t *fb = NULL;
 uint8_t *_jpg_buf = NULL;
@@ -80,68 +80,13 @@ void clearFb() {
 }
 
 void lostConnection(WiFiEvent_t event, WiFiEventInfo_t info) {
-  pulse(0, 255, 3, true);
+  led.pulse(0, 255, 3, true);
 }
-void showRing() {
-  startup(3, 200);
-  pauseRing(500);
-}
-void showCapture() {
-  pauseRing(300);
-  pulse(0, 0, 0, true);
-  pauseRing(300);
-}
-void showWin() {
-  pulse(255/3, 255, 3, true);
-  pulse(255/3, 255, 3, false);
-}
-void pauseRing(int time) {
-  FastLED.clear(true);
-  delay(time);
-}
-void ranking() {
-  float percentage = (float)currentScore/(float)maxScore;
 
-  uint8_t lit = percentage*LED_COUNT;
-  float remain = percentage*float(LED_COUNT) - lit;
-  uint8_t steps = 5;
-
-  FastLED.clear();
-  // Red to Green (hue = 85)
-  fill_rainbow(leds, lit, 0, steps);
-  leds[lit] = CHSV(lit*steps, 255, remain*255);
-  FastLED.show();
-}
-void pulse(uint8_t hue, uint8_t sat, uint32_t wait, bool powerdown) {
-  uint8_t passes = powerdown? 2 : 1;
-
-  for(size_t i = 0; i < 256*passes; i++)
-  {
-    FastLED.showColor(CHSV(hue, sat, i <= 255? i : 255 - i));
-    //delay(wait);
-  }
-  
-}
-void startup(uint16_t runs, uint32_t wait) {
-  CRGB color = CRGB::Blue;
-
-  for(size_t offset = 0; offset < LED_COUNT*runs; offset++)
-  {
-    FastLED.clear();
-    for(size_t i = 0; i < LED_COUNT; i+=4)
-    {
-      leds[(i+offset) % LED_COUNT] = color;
-      leds[(i+offset+1) % LED_COUNT] = color;
-
-    }
-    FastLED.show();
-    delay(wait);
-  }
-}
 
 
 void serveImage() {
-  showCapture();
+  led.showCapture();
   
   capture();
   if(saveCurrentImage()) {
@@ -159,7 +104,7 @@ void publishScore() {
   // Reduce unnecessary traffic
   if(currentScore < maxScore) return;
 
-  showWin();
+  led.showWin();
 
   char topic[32];
   sprintf(topic, "cup/%s/imageCount", CUP_ID);
@@ -292,19 +237,17 @@ void setup() {
   Serial.begin(115200);
   Serial.setDebugOutput(false);
 
+  led.init();
+  led.startup(2, 100);
+
   // Spiffs: format on fail = true
   if(!SPIFFS.begin(true)){
       Serial.println("An Error has occurred while mounting SPIFFS");
       return;
-  }
-  
-  FastLED.addLeds<NEOPIXEL, LED_PIN>(leds, LED_COUNT);
-  FastLED.showColor(CRGB::Red);
-  
+  }  
+ 
   // Camera init
   initCamera();
-
-  FastLED.clear(true);
 
   // Wi-Fi connection
   WiFi.begin(ssid, password);
@@ -353,7 +296,7 @@ void loop() {
   if (digitalRead(BTN_PIN) == LOW) {
     // digitalWrite(FLASH_PIN, 1);
     publishScore();
-    showCapture();
+    led.showCapture();
     capture();
     // digitalWrite(FLASH_PIN, 0);
 
@@ -361,7 +304,7 @@ void loop() {
     clearFb();
   }
   
-  ranking();
+  led.ranking();
   delay(1000);
 }
 

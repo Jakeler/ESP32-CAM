@@ -1,6 +1,6 @@
 #define CAMERA_MODEL_AI_THINKER
 #include "esp_camera.h"
-#include "pins.h"
+#include "camera_pins.h"
 
 camera_config_t config = {
 .pin_pwdn = PWDN_GPIO_NUM,
