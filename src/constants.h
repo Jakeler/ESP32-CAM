@@ -1,7 +1,12 @@
-const char* ssid = "TestNetz";
-const char* password = "6vigCGAU";
+#ifndef CONSTANTS_H
+    #define CONSTANTS_H
 
-const char* mqttServer = "10.42.0.1";
-const int mqttPort = 2222;
+    #define ssid "TestNetz"
+    #define password "6vigCGAU"
 
-#define CUP_ID "abcd"
+    #define mqttServer "10.42.0.1"
+    #define mqttPort 2222
+
+    #define CUP_ID "abcd"
+
+#endif

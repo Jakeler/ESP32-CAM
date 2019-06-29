@@ -1,11 +1,6 @@
 #include <Arduino.h>
 
-
 #include <WiFi.h>
-#include <PubSubClient.h>
-WiFiClient wifiClient;
-PubSubClient mqttClient(wifiClient);
-
 #include "WebServer.h"
 WebServer server(80);
 
@@ -14,12 +9,10 @@ WebServer server(80);
 
 #include "led.h"
 LED led;
-
 #include "camera.h"
 CAM cam;
-
-uint16_t currentScore = 0;
-uint16_t maxScore = 1;
+#include "mqtt.h"
+MQTT mqtt;
 
 
 void lostConnection(WiFiEvent_t event, WiFiEventInfo_t info) {
@@ -28,20 +21,6 @@ void lostConnection(WiFiEvent_t event, WiFiEventInfo_t info) {
 }
 
 
-void publishScore() {
-  currentScore++;
-  // Reduce unnecessary traffic
-  if(currentScore < maxScore) return;
-
-  // led.showWin();
-
-  char topic[32];
-  sprintf(topic, "cup/%s/imageCount", CUP_ID);
-  char value[7];
-  sprintf(value, "%d", currentScore);
-
-  mqttClient.publish(topic, value);
-}
 
 void serveWelcome() {
   server.send(200, "text/plain", "ESP-CAM running, please use an endpoint in /storage or /flash");
@@ -97,29 +76,6 @@ void serveImgCount() {
 }
 
 
-void mqttCallback(char* topic, uint8_t* payload, unsigned int length) {
-  Serial.println("Received on: " + String(topic));
-  uint16_t incoming = atoi((char*)payload);
-  // Atoi returns 0 on error, so no problem
-  if (incoming > maxScore) {
-    maxScore = incoming;
-    Serial.printf("Increased max to %d\n", incoming);
-  }
-  
-}
-
-void connectMQTT() {
-  mqttClient.setServer(mqttServer, mqttPort);
-  while (!mqttClient.connected()) {
-    mqttClient.connect(CUP_ID);
-    Serial.print(".");
-    delay(500);
-  }
-  Serial.println("MQTT connected"); 
-  mqttClient.setCallback(mqttCallback);
-  mqttClient.subscribe("cup/+/imageCount");
-}
-
 void setup() { 
   Serial.begin(115200);
   Serial.setDebugOutput(false);
@@ -139,10 +95,10 @@ void setup() {
   }
   Serial.println("");
   Serial.println("WiFi connected");
-  WiFi.onEvent(lostConnection, WiFiEvent_t::SYSTEM_EVENT_AP_STADISCONNECTED);
+  WiFi.onEvent(lostConnection, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
 
   // MQTT connection
-  connectMQTT();
+  mqtt.connect();
 
   // REST API Server
   server.on("/", serveWelcome);
@@ -168,15 +124,12 @@ void setup() {
 void loop() {
   server.handleClient();
 
-  mqttClient.loop();
-  if (!mqttClient.connected()) {
-    Serial.println("Lost MQTT connection... trying reconnect");
-    connectMQTT();
-  }
+  mqtt.handle();
+
 
   if (digitalRead(BTN_PIN) == LOW) {
     // digitalWrite(FLASH_PIN, 1);
-    publishScore();
+    mqtt.publishScore();
     led.showCapture();
     cam.capture();
     // digitalWrite(FLASH_PIN, 0);
