@@ -79,14 +79,13 @@ void serveImgCount() {
  * Connect to specified AP
  */
 void initWifi() {
-  Serial.println("Starting WiFi");
+  Serial.print("Starting WiFi");
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("");
-  Serial.println("WiFi connected");
+  Serial.println("\nWiFi connected");
 }
 
 /**

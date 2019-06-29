@@ -26,13 +26,14 @@ void MQTT::incomingCallback(char* topic, uint8_t* payload, unsigned int length) 
 }
 
 void MQTT::connect() {
+  Serial.print("Starting MQTT");
   mqttClient.setServer(mqttServer, mqttPort);
   while (!mqttClient.connected()) {
     mqttClient.connect(CUP_ID);
     Serial.print(".");
     delay(500);
   }
-  Serial.println("MQTT connected");
+  Serial.println("\nMQTT connected");
   mqttClient.subscribe("cup/+/imageCount");
   mqttClient.setCallback(std::bind(&MQTT::incomingCallback, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 }
