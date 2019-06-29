@@ -14,10 +14,47 @@ CAM cam;
 #include "mqtt.h"
 MQTT mqtt;
 
+#include "main_server.h"
 
-void lostConnection(WiFiEvent_t event, WiFiEventInfo_t info) {
-  Serial.println("WIFI disconnected!");
-  led.pulse(0, 255, 3, true);
+void setup() { 
+  Serial.begin(115200);
+  Serial.setDebugOutput(false);
+
+  led.init();
+  led.startup(2, 100);
+
+  cam.initFS(); 
+  cam.init();
+
+  initWifi();
+  mqtt.connect();
+  initServer();
+
+  // Setup Flash
+  pinMode(FLASH_PIN, OUTPUT);
+  // Setup Button
+  pinMode(BTN_PIN, INPUT_PULLUP);
+}
+
+void loop() {
+  server.handleClient();
+
+  mqtt.handle();
+
+
+  if (digitalRead(BTN_PIN) == LOW) {
+    // digitalWrite(FLASH_PIN, 1);
+    mqtt.publishScore();
+    led.showCapture();
+    cam.capture();
+    // digitalWrite(FLASH_PIN, 0);
+
+    cam.saveCurrentImage();
+    cam.clearFb();
+  }
+  
+  led.ranking();
+  delay(1000);
 }
 
 
@@ -105,46 +142,3 @@ void initServer() {
   Serial.print("Server Ready! Go to: http://");
   Serial.println(WiFi.localIP());
 }
-
-
-void setup() { 
-  Serial.begin(115200);
-  Serial.setDebugOutput(false);
-
-  led.init();
-  led.startup(2, 100);
-
-  cam.initFS(); 
-  cam.init();
-
-  initWifi();
-  mqtt.connect();
-  initServer();
-
-  // Setup Flash
-  pinMode(FLASH_PIN, OUTPUT);
-  // Setup Button
-  pinMode(BTN_PIN, INPUT_PULLUP);
-}
-
-void loop() {
-  server.handleClient();
-
-  mqtt.handle();
-
-
-  if (digitalRead(BTN_PIN) == LOW) {
-    // digitalWrite(FLASH_PIN, 1);
-    mqtt.publishScore();
-    led.showCapture();
-    cam.capture();
-    // digitalWrite(FLASH_PIN, 0);
-
-    cam.saveCurrentImage();
-    cam.clearFb();
-  }
-  
-  led.ranking();
-  delay(1000);
-}
-
