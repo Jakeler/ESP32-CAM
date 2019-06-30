@@ -30,13 +30,16 @@ void LED::pauseRing(int time) {
   FastLED.clear(true);
   delay(time);
 }
-void LED::ranking() {
-  int currentScore = 0; int maxScore = 3; // TODO Paramter
-  float percentage = (float)currentScore/(float)maxScore;
-
+void LED::ranking(float percentage) {
   uint8_t lit = percentage*LED_COUNT;
   float remain = percentage*float(LED_COUNT) - lit;
   uint8_t steps = 5;
+
+  if(lit > 17) { // Full green for winning team
+    fill_solid(leds, LED_COUNT, CRGB(0,255,0));
+    FastLED.show();
+    return;
+  }
 
   FastLED.clear();
   // Red to Green (hue = 85)

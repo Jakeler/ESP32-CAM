@@ -7,7 +7,7 @@ class LED {
         void showRing();
         void pulse(uint8_t hue, uint8_t sat, uint32_t wait, bool powerdown);
         void pauseRing(int time);
-        void ranking();
+        void ranking(float percent);
         void showCapture();
         void showWin();
     private:
