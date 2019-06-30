@@ -10,3 +10,4 @@ void initWifi();
 void initServer();
 void ledTask(void *params);
 void sendEvent(LED_Event evt);
+void sendError();

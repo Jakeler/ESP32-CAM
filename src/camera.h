@@ -3,7 +3,7 @@
 
 class CAM {
     public:
-        void init();
+        void init(std::function<void(void)>errorCallback);
         void initFS();
         void capture();
         void clearFb();

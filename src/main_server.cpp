@@ -29,12 +29,13 @@ void setup() {
   xTaskCreatePinnedToCore(ledTask, "LED Task", 16000, NULL, 17, NULL, 1);
 
   cam.initFS();
-  cam.init();
+  cam.init(sendError);
 
   initWifi();
   mqtt.connect();
   initServer();
   sendEvent(LED_Event::win);
+  sendEvent(LED_Event::ranking);
 
   // Setup Flash
   pinMode(FLASH_PIN, OUTPUT);
@@ -54,6 +55,7 @@ void loop() {
     sendEvent(LED_Event::capture);
     mqtt.publishScore();
     cam.capture();
+    sendEvent(LED_Event::ranking);
 
     digitalWrite(FLASH_PIN, 0);
 
@@ -67,23 +69,26 @@ void loop() {
 void sendEvent(LED_Event evt) {
   xQueueSend(ledEventQueue, &evt, 0);
 }
+void sendError() {
+  sendEvent(LED_Event::error);
+}
 
 void ledTask(void *params) {
   LED_Event event;
   while(1) {
     // Serial.printf("Running LEDs on core %d\n", xPortGetCoreID());
-    if(xQueueReceive(ledEventQueue, &event, 0) != pdPASS) {
-      led.ranking((float)mqtt.currentScore/(float)mqtt.maxScore);
-      delay(100);
-      continue; // Skip loop iteration is no new event
-    }
+    xQueueReceive(ledEventQueue, &event, 0);
 
     switch (event) {
       case LED_Event::startup:
         led.startup();
         break;
+      case LED_Event::ranking:
+        led.ranking((float)mqtt.currentScore/(float)mqtt.maxScore);
+        delay(100);
+        break;
       case LED_Event::error:
-        led.pulse(0, 255, 3, true);
+        led.pulse(0, 255, 0, true);
         break;
       case LED_Event::capture:
         led.showCapture();

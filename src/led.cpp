@@ -61,7 +61,7 @@ void LED::startup() {
   fill_gradient_RGB(temp, 9, CRGB::Black, color);
   napplyGamma_video(temp, 9, 2.0);
 
-  for (size_t start = 0; start < 100; start++) {
+  for (size_t start = 0; start < LED_COUNT*3; start++) {
     for (size_t i = 0; i < 9; i++) {
       leds[(start+i)%LED_COUNT] = temp[i];
     }

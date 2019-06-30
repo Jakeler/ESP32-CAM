@@ -18,11 +18,12 @@ size_t _jpg_buf_len = 0;
 esp_err_t res = ESP_OK;
 
 
-void CAM::init() {
+void CAM::init(std::function<void(void)>errorCallback) {
   Serial.println("Starting camera");
   while (esp_camera_init(&config) != ESP_OK) {
+    errorCallback();
     Serial.print(".");
-    delay(200);
+    delay(1000);
   }
   Serial.println("Camera initialized");
 }
