@@ -34,6 +34,7 @@ void setup() {
   initWifi();
   mqtt.connect();
   initServer();
+  sendEvent(LED_Event::win);
 
   // Setup Flash
   pinMode(FLASH_PIN, OUTPUT);
@@ -79,13 +80,16 @@ void ledTask(void *params) {
 
     switch (event) {
       case LED_Event::startup:
-        led.startup(1, 100);
+        led.startup();
         break;
       case LED_Event::error:
         led.pulse(0, 255, 3, true);
         break;
       case LED_Event::capture:
         led.showCapture();
+        break;
+      case LED_Event::win:
+        led.showWin();
         break;
       
       default:

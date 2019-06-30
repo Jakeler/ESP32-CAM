@@ -10,13 +10,10 @@ CRGB leds[LED_COUNT];
 
 void LED::init() {
   FastLED.addLeds<NEOPIXEL, LED_PIN>(leds, LED_COUNT);
-  FastLED.showColor(CRGB::Red);
+  FastLED.setCorrection(LEDColorCorrection::TypicalSMD5050);
+  FastLED.clear(true);
 }
 
-void LED::showRing() {
-  startup(3, 200);
-  pauseRing(500);
-}
 void LED::showCapture() {
   pauseRing(300);
   pulse(0, 0, 0, true);
@@ -57,18 +54,19 @@ void LED::pulse(uint8_t hue, uint8_t sat, uint32_t wait, bool powerdown) {
   }
   
 }
-void LED::startup(uint16_t runs, uint32_t wait) {
+void LED::startup() {
   CRGB color = CRGB::Blue;
 
-  for(size_t offset = 0; offset < LED_COUNT*runs; offset++)
-  {
-    FastLED.clear();
-    for(size_t i = 0; i < LED_COUNT; i+=4)
-    {
-      leds[(i+offset) % LED_COUNT] = color;
-      leds[(i+offset+1) % LED_COUNT] = color;
+  CRGB temp[9];
+  fill_gradient_RGB(temp, 9, CRGB::Black, color);
+  napplyGamma_video(temp, 9, 2.0);
+
+  for (size_t start = 0; start < 100; start++) {
+    for (size_t i = 0; i < 9; i++) {
+      leds[(start+i)%LED_COUNT] = temp[i];
     }
     FastLED.show();
-    delay(wait);
-  }
+    delay(50);
+  }  
+  
 }
