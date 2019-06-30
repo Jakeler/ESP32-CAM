@@ -25,7 +25,6 @@ void setup() {
   led.init();
 
   ledEventQueue = xQueueCreate(8, sizeof(int));
-  sendEvent(LED_Event::error);
   sendEvent(LED_Event::startup);
   xTaskCreatePinnedToCore(ledTask, "LED Task", 16000, NULL, 17, NULL, 1);
 
@@ -49,17 +48,19 @@ void loop() {
 
 
   if (digitalRead(BTN_PIN) == LOW) {
-    // digitalWrite(FLASH_PIN, 1);
+    digitalWrite(FLASH_PIN, 1);
+
     sendEvent(LED_Event::capture);
     mqtt.publishScore();
     cam.capture();
-    // digitalWrite(FLASH_PIN, 0);
+
+    digitalWrite(FLASH_PIN, 0);
 
     cam.saveCurrentImage();
     cam.clearFb();
   }
 
-  delay(1000);
+  delay(100);
 }
 
 void sendEvent(LED_Event evt) {
@@ -72,7 +73,7 @@ void ledTask(void *params) {
     // Serial.printf("Running LEDs on core %d\n", xPortGetCoreID());
     if(xQueueReceive(ledEventQueue, &event, 0) != pdPASS) {
       led.ranking((float)mqtt.currentScore/(float)mqtt.maxScore);
-      delay(1000);
+      delay(100);
       continue; // Skip loop iteration is no new event
     }
 
@@ -88,7 +89,7 @@ void ledTask(void *params) {
         break;
       
       default:
-        delay(1000);
+        delay(100);
         break;
     }    
   }
