@@ -1,0 +1,37 @@
+#include "Arduino.h"
+
+QueueHandle_t ledQueue;
+TickType_t maxTicks = 100;
+
+void setup() {
+    Serial.begin(BAUD);
+
+    ledQueue = xQueueCreate(32, sizeof(int));
+
+    xTaskCreate(task1000, "Task 1000", 2000, NULL, 1, NULL);
+    xTaskCreate(task500, "Task 500", 2000, NULL, 1, NULL);
+}
+
+int x = 1;
+
+void loop() {
+    delay(2000);
+    Serial.printf("%d: I am the loop, running on core %d\n", x, xPortGetCoreID());
+    xQueueSend(ledQueue, &x, maxTicks);
+    x++;
+}
+
+void task1000(void *param) {
+    for(;;) {
+        Serial.printf("I am task 1000, running on core %d consuming %d B\n", xPortGetCoreID(), 2000-uxTaskGetStackHighWaterMark(NULL));
+        delay(1000);
+    }
+}
+void task500(void *param) {
+    for(;;) {
+        int y;
+        BaseType_t res = xQueueReceive(ledQueue, &y, maxTicks);
+        Serial.printf("I am task 500 consuming %d B, running on core %d got %s %d\n", 2000-uxTaskGetStackHighWaterMark(NULL), xPortGetCoreID(), res == pdPASS? "RESULT!":"nothing...", y);
+        delay(500);
+    }
+}

@@ -38,7 +38,10 @@ void setup() {
   sendEvent(LED_Event::ranking);
 
   // Setup Flash
-  pinMode(FLASH_PIN, OUTPUT);
+  // pinMode(FLASH_PIN, OUTPUT);
+  // ledcSetup(0, 1000, 8);
+  // ledcAttachPin(FLASH_PIN, 0);
+
   // Setup Button
   pinMode(BTN_PIN, INPUT_PULLUP);
 }
@@ -50,14 +53,19 @@ void loop() {
 
 
   if (digitalRead(BTN_PIN) == LOW) {
-    digitalWrite(FLASH_PIN, 1);
+    // digitalWrite(FLASH_PIN, 1);
+    // ledcWrite(0, 50);
+    pinMode(FLASH_PIN, INPUT_PULLUP);
 
     sendEvent(LED_Event::capture);
     mqtt.publishScore();
+    delay(1000);
     cam.capture();
     sendEvent(LED_Event::ranking);
 
-    digitalWrite(FLASH_PIN, 0);
+    // digitalWrite(FLASH_PIN, 0);
+    // ledcWrite(0, 0);
+    pinMode(FLASH_PIN, INPUT);
 
     cam.saveCurrentImage();
     cam.clearFb();
@@ -145,7 +153,7 @@ void serveDelete() {
     return;
   }
   
-  if(!cam.deleteImg(server.arg("id"))) {
+  if(cam.deleteImg(server.arg("id"))) {
     server.send(200, "text/plain", "OK");
   } else {
     server.send(404, "text/plain", "Could not delete file");
