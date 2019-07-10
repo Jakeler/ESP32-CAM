@@ -92,11 +92,17 @@ bool CAM::saveCurrentImage() {
 
   String path = getImgPath(String(getNextImgId()));
 
+  uint32_t retry = 3;
   Serial.println("Writing to " + path);
   File imageFile = SPIFFS.open(path, FILE_WRITE);
   while(imageFile.write(_jpg_buf, _jpg_buf_len) == 0) {
     Serial.print(".");
     delay(10);
+    retry--;
+    if (retry == 0) {
+      Serial.println("Write failed");
+      break;
+    }
   }
   Serial.println("Wrote: "+String(imageFile.size()) + " / " + String(_jpg_buf_len));
   imageFile.close();
