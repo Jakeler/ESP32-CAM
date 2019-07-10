@@ -47,10 +47,12 @@ void setup() {
 }
 
 void loop() {
+  if(!WiFi.isConnected())
+    initWifi();
+
   server.handleClient();
 
   mqtt.handle();
-
 
   if (digitalRead(BTN_PIN) == LOW) {
     // digitalWrite(FLASH_PIN, 1);
